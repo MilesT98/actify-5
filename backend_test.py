@@ -194,6 +194,92 @@ class ActifyAPITester:
                 return False
         return False
 
+    def test_get_daily_global_activity(self):
+        """Test getting today's global activity"""
+        success, response = self.run_test(
+            "Get Today's Global Activity",
+            "GET",
+            "daily-global-activity/current",
+            200
+        )
+        
+        if success:
+            print(f"Global activity title: {response.get('activity_title', 'No title')}")
+            print(f"Global activity description: {response.get('activity_description', 'No description')}")
+            print(f"Participant count: {response.get('participant_count', 0)}")
+            return True
+        return False
+
+    def test_complete_global_activity(self):
+        """Test completing a global activity"""
+        form_data = {
+            'user_id': self.test_user_id,
+            'description': "I completed today's global activity!"
+        }
+        
+        success, response = self.run_test(
+            "Complete Global Activity",
+            "POST",
+            "daily-global-activity/complete",
+            200,
+            form_data=form_data
+        )
+        
+        if success:
+            print(f"Response: {response}")
+            if response.get('success'):
+                print("Successfully completed global activity")
+                return True
+            else:
+                print(f"Failed to complete activity: {response.get('message', 'Unknown error')}")
+                return False
+        return False
+
+    def test_get_global_activity_feed(self):
+        """Test getting global activity feed"""
+        success, response = self.run_test(
+            "Get Global Activity Feed",
+            "GET",
+            f"daily-global-activity/feed?user_id={self.test_user_id}&friends_only=true",
+            200
+        )
+        
+        if success:
+            print(f"Feed status: {response.get('status', 'Unknown')}")
+            print(f"Friends count: {response.get('friends_count', 0)}")
+            
+            if 'completions' in response:
+                print(f"Found {len(response['completions'])} completions in feed")
+                for idx, completion in enumerate(response['completions']):
+                    print(f"Completion {idx+1}: by {completion.get('username', 'Unknown')}")
+            else:
+                print("No completions found in feed")
+            
+            return True
+        return False
+
+    def test_get_group_daily_activity_feed(self):
+        """Test getting group daily activity feed"""
+        success, response = self.run_test(
+            "Get Group Daily Activity Feed",
+            "GET",
+            f"groups/{self.test_group_id}/daily-activity-feed?user_id={self.test_user_id}",
+            200
+        )
+        
+        if success:
+            print(f"Feed status: {response.get('status', 'Unknown')}")
+            
+            if response.get('activity'):
+                print(f"Activity title: {response['activity'].get('activity_title', 'No title')}")
+                print(f"Members completed: {response.get('members_completed', 0)}")
+            
+            if 'completions' in response:
+                print(f"Found {len(response['completions'])} completions in feed")
+            
+            return True
+        return False
+
 def main():
     # Get the backend URL from environment variable
     backend_url = "https://333114a3-9b04-4aaa-a7b1-93d53ba2d24b.preview.emergentagent.com/api"
@@ -209,22 +295,23 @@ def main():
         print("❌ Login failed, stopping tests")
         return 1
     
-    # Test getting user's groups
+    # Test Global Activity APIs
+    print("\n🌍 Testing Global Activity APIs...\n")
+    tester.test_get_daily_global_activity()
+    tester.test_get_global_activity_feed()
+    tester.test_complete_global_activity()
+    tester.test_get_global_activity_feed()  # Test again after completion
+    
+    # Test Group Activity APIs
+    print("\n👥 Testing Group Activity APIs...\n")
+    tester.test_get_group_daily_activity_feed()
+    
+    # Test existing Weekly Challenge Group APIs
+    print("\n🏆 Testing Weekly Challenge Group APIs...\n")
     tester.test_get_user_groups()
-    
-    # Test getting group details
     tester.test_get_group_details()
-    
-    # Test getting weekly activities
     tester.test_get_weekly_activities()
-    
-    # Test getting current day activity
     tester.test_get_current_day_activity()
-    
-    # Test revealing daily activity (admin function)
-    tester.test_reveal_daily_activity()
-    
-    # Test weekly rankings
     tester.test_weekly_rankings()
     
     # Print results
