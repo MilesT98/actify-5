@@ -534,6 +534,7 @@ const GroupsScreen = ({ user, darkMode }) => {
   const loadGroups = async () => {
     try {
       const response = await axios.get(`${API}/users/${user.id}/groups`);
+      console.log('Groups API response:', response.data);
       setGroups(response.data || []);
     } catch (error) {
       console.error('Failed to load groups:', error);
@@ -929,6 +930,7 @@ const WeeklyActivityGroupScreen = ({ group, user, onBack, darkMode }) => {
         axios.get(`${API}/groups/${group.id}/weekly-rankings`)
       ]);
       
+      console.log('Weekly activities loaded:', activitiesRes.data);
       setWeeklyActivities(activitiesRes.data || []);
       setCurrentDayActivity(currentActivityRes.data?.activity);
       setRankings(rankingsRes.data?.rankings || []);
@@ -952,17 +954,21 @@ const WeeklyActivityGroupScreen = ({ group, user, onBack, darkMode }) => {
       formData.append('activity_description', activityDescription.trim());
       formData.append('user_id', user.id);
 
+      console.log('Submitting activity to:', `${API}/groups/${group.id}/submit-activity`);
       const response = await axios.post(`${API}/groups/${group.id}/submit-activity`, formData);
+      
+      console.log('Activity submission response:', response.data);
       
       if (response.data.success) {
         alert(`Activity submitted! ${response.data.remaining} more needed.`);
         setActivityTitle('');
         setActivityDescription('');
         setShowSubmitForm(false);
-        await loadGroupData();
+        await loadGroupData(); // Reload data to show new activity
       }
     } catch (error) {
       console.error('Failed to submit activity:', error);
+      console.error('Error details:', error.response?.data);
       alert(error.response?.data?.detail || 'Failed to submit activity');
     } finally {
       setSubmitLoading(false);
@@ -1007,6 +1013,31 @@ const WeeklyActivityGroupScreen = ({ group, user, onBack, darkMode }) => {
     } catch (error) {
       console.error('Failed to set submission day:', error);
       alert(error.response?.data?.detail || 'Failed to set submission day');
+    }
+  };
+
+  // FIXED: Added the missing revealDailyActivity function
+  const revealDailyActivity = async () => {
+    if (!isAdmin) {
+      alert('Only group admin can reveal daily activities');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('admin_id', user.id);
+      formData.append('day_number', 1); // You might want to track this properly
+
+      const response = await axios.post(`${API}/groups/${group.id}/reveal-daily-activity`, formData);
+      
+      if (response.data.success) {
+        alert(`Activity revealed: ${response.data.revealed_activity.activity_title} 🎉`);
+        await loadGroupData(); // Reload to show the revealed activity
+        setShowAdminPanel(false);
+      }
+    } catch (error) {
+      console.error('Failed to reveal activity:', error);
+      alert(error.response?.data?.detail || 'Failed to reveal activity');
     }
   };
 
@@ -1602,36 +1633,25 @@ const App = () => {
         <div className="flex-1 overflow-hidden">
           {activeTab === 'feed' && <FeedScreen user={user} />}
           {activeTab === 'groups' && <GroupsScreen user={user} darkMode={darkMode} />}
-          {activeTab === 'notifications' && (
-            <NotificationsScreen 
-              user={user} 
-              notifications={notifications} 
-              setNotifications={setNotifications}
-              onNavigate={setActiveTab}
-            />
-          )}
-          {activeTab === 'profile' && (
-            <ProfileScreen 
-              user={user} 
-              onLogout={handleLogout} 
-              darkMode={darkMode} 
-              setDarkMode={setDarkMode}
-            />
-          )}
+          {activeTab === 'notifications' && <NotificationsScreen user={user} notifications={notifications} setNotifications={setNotifications} />}
+          {activeTab === 'profile' && <ProfileScreen user={user} onLogout={handleLogout} darkMode={darkMode} setDarkMode={setDarkMode} />}
         </div>
-
+        
         <Navigation 
           activeTab={activeTab} 
           setActiveTab={setActiveTab} 
           notifications={notifications}
           onPhotoClick={() => setShowCamera(true)}
-          darkMode={darkMode} 
+          darkMode={darkMode}
         />
       </div>
 
       {showCamera && (
         <CameraCapture 
-          onCapture={() => setShowCamera(false)}
+          onCapture={(blob) => {
+            console.log('Photo captured:', blob);
+            setShowCamera(false);
+          }}
           onClose={() => setShowCamera(false)}
           darkMode={darkMode}
         />
