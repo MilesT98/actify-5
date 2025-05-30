@@ -519,15 +519,21 @@ const FeedScreen = ({ user }) => {
 
                   {groupFeed?.status === 'locked' && (
                     <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                      <div className="text-center">
+                      <div className="text-center mb-4">
                         <div className="text-4xl mb-2">🔒</div>
                         <h5 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-1">
                           {groupFeed.activity?.activity_title}
                         </h5>
-                        <p className="text-yellow-600 dark:text-yellow-300 text-sm">
-                          Submit your group activity to view members' posts
+                        <p className="text-yellow-600 dark:text-yellow-300 text-sm mb-4">
+                          {groupFeed.activity?.activity_description}
                         </p>
                       </div>
+                      <button
+                        onClick={() => setShowGroupSubmission(group.id)}
+                        className="w-full bg-yellow-600 text-white py-2 px-4 rounded-lg hover:bg-yellow-700 transition-colors"
+                      >
+                        Complete Group Activity
+                      </button>
                     </div>
                   )}
 
