@@ -525,7 +525,20 @@ async def get_weekly_activities(group_id: str):
         "week_start": group["current_week_start"]
     }).to_list(length=None)
     
-    return activities
+    # Convert MongoDB documents to JSON-serializable format
+    serialized_activities = []
+    for activity in activities:
+        activity.pop('_id', None)  # Remove MongoDB ObjectId
+        # Convert datetime to ISO string if needed
+        if 'created_at' in activity and hasattr(activity['created_at'], 'isoformat'):
+            activity['created_at'] = activity['created_at'].isoformat()
+        if 'week_start' in activity and hasattr(activity['week_start'], 'isoformat'):
+            activity['week_start'] = activity['week_start'].isoformat()
+        if 'reveal_date' in activity and activity['reveal_date'] and hasattr(activity['reveal_date'], 'isoformat'):
+            activity['reveal_date'] = activity['reveal_date'].isoformat()
+        serialized_activities.append(activity)
+    
+    return serialized_activities
 
 @api_router.get("/groups/{group_id}/current-day-activity")
 async def get_current_day_activity(group_id: str):
