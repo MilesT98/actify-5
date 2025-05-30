@@ -247,6 +247,8 @@ const FeedScreen = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [showGlobalSubmission, setShowGlobalSubmission] = useState(false);
   const [globalSubmissionText, setGlobalSubmissionText] = useState('');
+  const [showGroupSubmission, setShowGroupSubmission] = useState(null);
+  const [groupSubmissionText, setGroupSubmissionText] = useState('');
 
   const loadDailyGlobalActivity = async () => {
     try {
