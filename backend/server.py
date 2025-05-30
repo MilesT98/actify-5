@@ -189,12 +189,45 @@ class NotificationResponse(BaseModel):
     read: bool = False
     created_at: datetime
 
+# Achievement Models
 class Achievement(BaseModel):
     id: str
     name: str
     description: str
     icon: str
     unlocked_at: datetime
+
+# NEW: Global Activity System Models
+class ActivityDataset(BaseModel):
+    id: str
+    title: str
+    description: str
+    category: str = "general"
+    difficulty: str = "easy"  # easy, medium, hard
+    estimated_time_minutes: int = 15
+    is_active: bool = True
+    created_at: datetime
+
+class DailyGlobalActivity(BaseModel):
+    id: str
+    activity_id: str  # Reference to ActivityDataset
+    date: str  # YYYY-MM-DD format
+    selected_at: datetime  # Random time between 05:00-00:00 GMT
+    activity_title: str
+    activity_description: str
+    is_active: bool = True
+    participant_count: int = 0
+
+class GlobalActivityCompletion(BaseModel):
+    id: str
+    activity_id: str  # Reference to DailyGlobalActivity
+    user_id: str
+    username: str
+    description: str
+    photo_url: Optional[str] = None
+    completed_at: datetime
+    is_friends_visible: bool = False  # Unlocked after user posts
+    votes: int = 0
 
 # Utility functions
 def hash_password(password: str) -> str:
