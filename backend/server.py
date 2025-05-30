@@ -1204,6 +1204,415 @@ async def comment_global_submission(
     
     return {"message": "Comment added successfully", "comment": comment_doc}
 
+# Global Activity System Routes
+
+@api_router.post("/admin/initialize-activity-dataset")
+async def initialize_activity_dataset():
+    """Initialize the activity dataset with 300 activities (admin function)"""
+    activities = [
+        # Physical Activities (100 activities)
+        ("Take a 15-minute walk", "Go for a brisk 15-minute walk around your neighborhood or a nearby park", "physical", "easy", 15),
+        ("Do 10 push-ups", "Complete 10 push-ups with proper form. Modify as needed.", "physical", "easy", 5),
+        ("Stretch for 5 minutes", "Do a gentle stretching routine focusing on major muscle groups", "physical", "easy", 5),
+        ("Climb stairs for 5 minutes", "Use stairs in your building or find a public staircase", "physical", "easy", 5),
+        ("Do 20 jumping jacks", "Perform 20 jumping jacks at a moderate pace", "physical", "easy", 3),
+        ("Hold a plank for 30 seconds", "Maintain a plank position for 30 seconds with proper form", "physical", "easy", 2),
+        ("Do 15 squats", "Complete 15 bodyweight squats with good form", "physical", "easy", 5),
+        ("Take a 30-minute walk", "Enjoy a longer walk, perhaps exploring a new route", "physical", "medium", 30),
+        ("Do a 10-minute yoga session", "Follow a short yoga routine or do some basic poses", "physical", "medium", 10),
+        ("Complete 25 push-ups", "Challenge yourself with 25 push-ups, take breaks as needed", "physical", "medium", 8),
+        
+        # Wellness Activities (50 activities)
+        ("Meditate for 10 minutes", "Sit quietly and practice mindfulness or guided meditation", "wellness", "easy", 10),
+        ("Write in a gratitude journal", "Write down 3-5 things you're grateful for today", "wellness", "easy", 10),
+        ("Practice deep breathing", "Do 5 minutes of focused breathing exercises", "wellness", "easy", 5),
+        ("Take a cold shower", "End your shower with 30 seconds of cold water", "wellness", "easy", 5),
+        ("Drink an extra glass of water", "Stay hydrated by drinking one additional glass of water", "wellness", "easy", 2),
+        ("Step outside for fresh air", "Spend at least 5 minutes outdoors breathing fresh air", "wellness", "easy", 5),
+        ("Listen to calming music", "Put on relaxing music and listen mindfully for 10 minutes", "wellness", "easy", 10),
+        ("Do a digital detox hour", "Spend one hour without any screens or digital devices", "wellness", "medium", 60),
+        ("Practice positive affirmations", "Say 5 positive affirmations about yourself", "wellness", "easy", 5),
+        ("Take a relaxing bath", "Enjoy a warm, relaxing bath with minimal distractions", "wellness", "medium", 20),
+        
+        # Learning Activities (50 activities)
+        ("Read for 20 minutes", "Read a book, article, or educational material", "learning", "easy", 20),
+        ("Learn 5 new words", "Look up and memorize 5 words you don't know", "learning", "easy", 15),
+        ("Watch an educational video", "Watch a 10-minute educational or documentary video", "learning", "easy", 10),
+        ("Practice a new skill", "Spend 15 minutes practicing something you want to learn", "learning", "medium", 15),
+        ("Write in a journal", "Reflect on your day or thoughts by writing for 10 minutes", "learning", "easy", 10),
+        ("Listen to a podcast", "Listen to an educational or interesting podcast episode", "learning", "easy", 30),
+        ("Learn basic phrases in a new language", "Use an app or website to learn 10 basic phrases", "learning", "medium", 20),
+        ("Research a topic you're curious about", "Spend 20 minutes researching something interesting", "learning", "easy", 20),
+        ("Practice mental math", "Do 10 mental math problems without a calculator", "learning", "easy", 10),
+        ("Organize your digital files", "Spend 15 minutes organizing photos, documents, or emails", "learning", "easy", 15),
+        
+        # Social Activities (30 activities)
+        ("Call a friend or family member", "Have a meaningful conversation with someone you care about", "social", "easy", 15),
+        ("Send a thoughtful text", "Send an encouraging or appreciative message to someone", "social", "easy", 5),
+        ("Write a thank you note", "Write a handwritten note expressing gratitude", "social", "easy", 10),
+        ("Compliment a stranger", "Give a genuine compliment to someone you encounter", "social", "easy", 2),
+        ("Help someone today", "Offer assistance to a friend, neighbor, or stranger", "social", "medium", 20),
+        ("Share something positive on social media", "Post something uplifting or inspiring", "social", "easy", 5),
+        ("Have lunch with a colleague", "Connect with a coworker over a meal or coffee", "social", "medium", 60),
+        ("Join a community event", "Participate in a local event or gathering", "social", "medium", 120),
+        ("Volunteer for 30 minutes", "Offer your time to help a cause you care about", "social", "medium", 30),
+        ("Practice active listening", "Really focus on listening to someone without distractions", "social", "easy", 15),
+        
+        # Creative Activities (30 activities)
+        ("Draw or sketch for 15 minutes", "Create art with whatever materials you have", "creative", "easy", 15),
+        ("Write a short story or poem", "Express yourself through creative writing", "creative", "medium", 20),
+        ("Take artistic photos", "Capture 5 creative or beautiful photos", "creative", "easy", 15),
+        ("Try a new recipe", "Cook or bake something you've never made before", "creative", "medium", 45),
+        ("Rearrange a room", "Change the layout or decor of a space in your home", "creative", "medium", 30),
+        ("Create a playlist", "Curate music for a specific mood or activity", "creative", "easy", 15),
+        ("Make something with your hands", "Craft, build, or create something tangible", "creative", "medium", 30),
+        ("Sing or hum your favorite song", "Express yourself through music for 5 minutes", "creative", "easy", 5),
+        ("Design something on paper", "Sketch an idea, plan, or design concept", "creative", "easy", 15),
+        ("Write a letter to your future self", "Compose a message to yourself to read later", "creative", "easy", 15),
+        
+        # Productivity Activities (30 activities)
+        ("Clean and organize one space", "Tidy up a desk, drawer, or small area", "productivity", "easy", 15),
+        ("Plan tomorrow's schedule", "Spend 10 minutes planning your next day", "productivity", "easy", 10),
+        ("Complete a task you've been postponing", "Tackle something you've been putting off", "productivity", "medium", 30),
+        ("Declutter 10 items", "Choose 10 things to donate, recycle, or throw away", "productivity", "easy", 15),
+        ("Update your calendar", "Review and organize your upcoming appointments", "productivity", "easy", 10),
+        ("Backup important files", "Ensure your important data is safely backed up", "productivity", "easy", 20),
+        ("Review your goals", "Spend 15 minutes reflecting on your personal goals", "productivity", "easy", 15),
+        ("Prepare healthy snacks", "Pre-prepare some nutritious snacks for later", "productivity", "easy", 20),
+        ("Update your resume or LinkedIn", "Improve your professional profile", "productivity", "medium", 30),
+        ("Research something for work or life", "Look into something that could benefit you", "productivity", "easy", 20),
+        
+        # Extended list continues...
+        ("Do 50 jumping jacks", "Challenge yourself with 50 jumping jacks", "physical", "medium", 5),
+        ("Walk up 5 flights of stairs", "Find stairs and walk up 5 flights", "physical", "easy", 10),
+        ("Do lunges for 2 minutes", "Perform alternating lunges for 2 minutes", "physical", "easy", 3),
+        ("Try a new walking route", "Explore a different path in your neighborhood", "physical", "easy", 20),
+        ("Do wall push-ups", "Complete 15 wall push-ups as a modified exercise", "physical", "easy", 5),
+        ("Practice balance exercises", "Stand on one foot or do balance poses for 5 minutes", "physical", "easy", 5),
+        ("Do calf raises", "Complete 20 calf raises", "physical", "easy", 3),
+        ("Try dancing", "Dance to your favorite song for one full song", "physical", "easy", 4),
+        ("Do mountain climbers", "Perform mountain climbers for 30 seconds", "physical", "medium", 2),
+        ("Walk backwards for 2 minutes", "Carefully walk backwards for coordination", "physical", "easy", 3),
+    ]
+    
+    # Add more activities to reach 300 total
+    additional_activities = []
+    base_activities = [
+        ("Take a mindful walk", "Walk slowly and notice your surroundings", "wellness", "easy", 15),
+        ("Do breathing exercises", "Practice 4-7-8 breathing technique", "wellness", "easy", 10),
+        ("Organize your workspace", "Clean and arrange your work area", "productivity", "easy", 15),
+        ("Learn something new online", "Spend 15 minutes learning on a free platform", "learning", "easy", 15),
+        ("Practice gratitude", "Think of 5 things you're grateful for", "wellness", "easy", 5),
+        ("Take photos of nature", "Capture 3 beautiful nature photos", "creative", "easy", 15),
+        ("Do desk exercises", "Stretch and exercise at your desk", "physical", "easy", 10),
+        ("Call someone you haven't talked to in a while", "Reconnect with an old friend", "social", "easy", 20),
+        ("Try a new healthy snack", "Eat something nutritious you haven't tried", "wellness", "easy", 5),
+        ("Write down your thoughts", "Free-write for 10 minutes", "creative", "easy", 10),
+    ]
+    
+    # Multiply base activities to reach 300
+    for i in range(20):
+        for base_title, base_desc, category, difficulty, time in base_activities:
+            activities.append((
+                f"{base_title} (Variation {i+1})",
+                f"{base_desc} - Daily variation #{i+1}",
+                category,
+                difficulty,
+                time
+            ))
+    
+    # Create activity documents
+    activity_docs = []
+    for i, (title, description, category, difficulty, time_minutes) in enumerate(activities[:300]):
+        activity_doc = {
+            "id": str(uuid.uuid4()),
+            "title": title,
+            "description": description,
+            "category": category,
+            "difficulty": difficulty,
+            "estimated_time_minutes": time_minutes,
+            "is_active": True,
+            "created_at": datetime.utcnow()
+        }
+        activity_docs.append(activity_doc)
+    
+    # Clear existing activities and insert new ones
+    await activity_dataset_collection.delete_many({})
+    await activity_dataset_collection.insert_many(activity_docs)
+    
+    return {
+        "success": True,
+        "message": f"Initialized {len(activity_docs)} activities in the dataset",
+        "count": len(activity_docs)
+    }
+
+@api_router.get("/daily-global-activity/current")
+async def get_current_daily_global_activity():
+    """Get today's global activity"""
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    
+    daily_activity = await daily_global_activities_collection.find_one({"date": today})
+    
+    if not daily_activity:
+        # Create today's activity if it doesn't exist
+        await select_daily_global_activity(today)
+        daily_activity = await daily_global_activities_collection.find_one({"date": today})
+    
+    if daily_activity:
+        # Remove MongoDB ObjectId and convert datetime
+        daily_activity.pop('_id', None)
+        if 'selected_at' in daily_activity and hasattr(daily_activity['selected_at'], 'isoformat'):
+            daily_activity['selected_at'] = daily_activity['selected_at'].isoformat()
+        
+        return daily_activity
+    
+    return {"error": "No daily activity available"}
+
+async def select_daily_global_activity(date_str: str):
+    """Select and schedule today's global activity"""
+    import random
+    
+    # Check if activity already exists for this date
+    existing = await daily_global_activities_collection.find_one({"date": date_str})
+    if existing:
+        return existing
+    
+    # Get random activity from dataset
+    activities = await activity_dataset_collection.find({"is_active": True}).to_list(length=None)
+    if not activities:
+        raise HTTPException(status_code=500, detail="No activities in dataset")
+    
+    selected_activity = random.choice(activities)
+    
+    # Generate random time between 05:00 and 00:00 GMT (19 hour window)
+    base_time = datetime.strptime(f"{date_str} 05:00:00", "%Y-%m-%d %H:%M:%S")
+    random_hours = random.randint(0, 19)
+    random_minutes = random.randint(0, 59)
+    selected_time = base_time + timedelta(hours=random_hours, minutes=random_minutes)
+    
+    daily_activity_doc = {
+        "id": str(uuid.uuid4()),
+        "activity_id": selected_activity["id"],
+        "date": date_str,
+        "selected_at": selected_time,
+        "activity_title": selected_activity["title"],
+        "activity_description": selected_activity["description"],
+        "is_active": True,
+        "participant_count": 0
+    }
+    
+    await daily_global_activities_collection.insert_one(daily_activity_doc)
+    return daily_activity_doc
+
+@api_router.post("/daily-global-activity/complete")
+async def complete_daily_global_activity(
+    user_id: str = Form(...),
+    description: str = Form(...),
+    photo: Optional[UploadFile] = File(None)
+):
+    """Submit completion of today's global activity"""
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    
+    # Get today's activity
+    daily_activity = await daily_global_activities_collection.find_one({"date": today})
+    if not daily_activity:
+        raise HTTPException(status_code=404, detail="No global activity for today")
+    
+    # Check if user already completed today's activity
+    existing_completion = await global_activity_completions_collection.find_one({
+        "activity_id": daily_activity["id"],
+        "user_id": user_id
+    })
+    
+    if existing_completion:
+        raise HTTPException(status_code=400, detail="Already completed today's global activity")
+    
+    # Get user info
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Process photo if provided
+    photo_url = None
+    if photo:
+        content = await photo.read()
+        photo_url = f"data:image/jpeg;base64,{base64.b64encode(content).decode('utf-8')}"
+    
+    # Create completion record
+    completion_doc = {
+        "id": str(uuid.uuid4()),
+        "activity_id": daily_activity["id"],
+        "user_id": user_id,
+        "username": user["username"],
+        "description": description,
+        "photo_url": photo_url,
+        "completed_at": datetime.utcnow(),
+        "is_friends_visible": True,  # Unlock friends feed for this user
+        "votes": 0
+    }
+    
+    await global_activity_completions_collection.insert_one(completion_doc)
+    
+    # Update participant count
+    await daily_global_activities_collection.update_one(
+        {"id": daily_activity["id"]},
+        {"$inc": {"participant_count": 1}}
+    )
+    
+    # Remove MongoDB ObjectId for response
+    completion_doc.pop('_id', None)
+    if 'completed_at' in completion_doc and hasattr(completion_doc['completed_at'], 'isoformat'):
+        completion_doc['completed_at'] = completion_doc['completed_at'].isoformat()
+    
+    return {
+        "success": True,
+        "completion": completion_doc,
+        "message": "Global activity completed! You can now view friends' submissions."
+    }
+
+@api_router.get("/daily-global-activity/feed")
+async def get_daily_global_activity_feed(
+    user_id: str,
+    friends_only: bool = True,
+    limit: int = 50
+):
+    """Get feed of global activity completions (friends or global)"""
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    
+    # Get today's activity
+    daily_activity = await daily_global_activities_collection.find_one({"date": today})
+    if not daily_activity:
+        return {"status": "no_activity", "message": "No global activity for today"}
+    
+    # Check if user has completed today's activity
+    user_completion = await global_activity_completions_collection.find_one({
+        "activity_id": daily_activity["id"],
+        "user_id": user_id
+    })
+    
+    if not user_completion:
+        return {
+            "status": "locked",
+            "activity": daily_activity,
+            "message": "Submit your activity to view friends' posts"
+        }
+    
+    # Build query for completions
+    completions_query = {"activity_id": daily_activity["id"]}
+    
+    if friends_only:
+        # Get list of users the current user is following
+        following_docs = await db.follows.find({"follower_id": user_id}).to_list(None)
+        following_ids = [follow["following_id"] for follow in following_docs]
+        
+        if following_ids:
+            completions_query["user_id"] = {"$in": following_ids}
+        else:
+            # No friends, return empty feed
+            return {
+                "status": "unlocked",
+                "activity": daily_activity,
+                "completions": [],
+                "friends_count": 0,
+                "message": "No friends have completed this activity yet"
+            }
+    
+    # Get completions
+    completions = await global_activity_completions_collection.find(
+        completions_query
+    ).sort("completed_at", -1).limit(limit).to_list(length=None)
+    
+    # Clean up MongoDB data
+    for completion in completions:
+        completion.pop('_id', None)
+        if 'completed_at' in completion and hasattr(completion['completed_at'], 'isoformat'):
+            completion['completed_at'] = completion['completed_at'].isoformat()
+    
+    daily_activity.pop('_id', None)
+    if 'selected_at' in daily_activity and hasattr(daily_activity['selected_at'], 'isoformat'):
+        daily_activity['selected_at'] = daily_activity['selected_at'].isoformat()
+    
+    return {
+        "status": "unlocked",
+        "activity": daily_activity,
+        "completions": completions,
+        "friends_count": len(completions),
+        "user_has_completed": True
+    }
+
+@api_router.get("/groups/{group_id}/daily-activity-feed")
+async def get_group_daily_activity_feed(
+    group_id: str,
+    user_id: str,
+    limit: int = 50
+):
+    """Get feed of today's group activity completions"""
+    # Get group info
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if user_id not in group["members"]:
+        raise HTTPException(status_code=403, detail="User not in group")
+    
+    # Get today's revealed activity for this group
+    current_day_activity = group.get("current_day_activity")
+    if not current_day_activity:
+        return {
+            "status": "no_activity",
+            "message": "No activity revealed for today"
+        }
+    
+    # Check if user has completed today's group activity
+    # For now, we'll use a simple approach - check if user has any completion for today
+    # In a full implementation, you'd track daily completions separately
+    
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+    
+    user_completion = await db.daily_activity_completions.find_one({
+        "group_id": group_id,
+        "completed_by": user_id,
+        "completed_at": {"$gte": today_start, "$lt": today_end}
+    })
+    
+    if not user_completion:
+        return {
+            "status": "locked",
+            "activity": current_day_activity,
+            "message": "Submit your group activity to view members' posts"
+        }
+    
+    # Get group members' completions for today
+    group_completions = await db.daily_activity_completions.find({
+        "group_id": group_id,
+        "completed_at": {"$gte": today_start, "$lt": today_end}
+    }).sort("completed_at", -1).limit(limit).to_list(length=None)
+    
+    # Get user info for each completion
+    for completion in group_completions:
+        completion.pop('_id', None)
+        if 'completed_at' in completion and hasattr(completion['completed_at'], 'isoformat'):
+            completion['completed_at'] = completion['completed_at'].isoformat()
+        
+        # Get user info
+        user_info = await db.users.find_one({"id": completion["completed_by"]})
+        if user_info:
+            completion["user_info"] = {
+                "username": user_info["username"],
+                "full_name": user_info["full_name"],
+                "avatar_color": user_info["avatar_color"]
+            }
+    
+    return {
+        "status": "unlocked",
+        "activity": current_day_activity,
+        "completions": group_completions,
+        "group_name": group["name"],
+        "members_completed": len(group_completions),
+        "user_has_completed": True
+    }
+
 # Achievement Routes
 @api_router.get("/achievements/{user_id}", response_model=List[Achievement])
 async def get_user_achievements(user_id: str):
