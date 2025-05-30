@@ -427,6 +427,61 @@ const FeedScreen = ({ user }) => {
           </div>
         )}
 
+        {/* Group Activity Submission Modal */}
+        {showGroupSubmission && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Complete Group Activity</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                <strong>{groupFeeds[showGroupSubmission]?.activity?.activity_title}</strong>
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                {groupFeeds[showGroupSubmission]?.activity?.activity_description}
+              </p>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    How did you complete this activity?
+                  </label>
+                  <textarea
+                    value={groupSubmissionText}
+                    onChange={(e) => setGroupSubmissionText(e.target.value)}
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="Describe your completion..."
+                    rows="4"
+                    maxLength={300}
+                  />
+                </div>
+                
+                <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg">
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    💰 Earn points: 3 for 1st place, 2 for 2nd place, 1 for 3rd+ place
+                  </p>
+                </div>
+                
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowGroupSubmission(null);
+                      setGroupSubmissionText('');
+                    }}
+                    className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => submitGroupActivity(showGroupSubmission)}
+                    className="flex-1 bg-yellow-600 text-white py-2 px-4 rounded-lg hover:bg-yellow-700"
+                  >
+                    Submit
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Friends Feed */}
         {globalFeed?.status === 'unlocked' && (
           <div className="space-y-4">
