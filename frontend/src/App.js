@@ -237,210 +237,348 @@ const AuthScreen = ({ onLogin, darkMode }) => {
   );
 };
 
-// Enhanced FeedScreen with Global Challenge Integration
+// Enhanced FeedScreen with Global and Group Activity Feeds
 const FeedScreen = ({ user }) => {
-  const [currentGlobalChallenge, setCurrentGlobalChallenge] = useState(null);
-  const [globalFeedData, setGlobalFeedData] = useState(null);
-  const [globalSubmissions, setGlobalSubmissions] = useState([]);
-  const [userVotes, setUserVotes] = useState(new Set());
-  const [sortOrder, setSortOrder] = useState('recent');
+  const [homeActiveTab, setHomeActiveTab] = useState('friends');
+  const [dailyGlobalActivity, setDailyGlobalActivity] = useState(null);
+  const [globalFeed, setGlobalFeed] = useState(null);
+  const [userGroups, setUserGroups] = useState([]);
+  const [groupFeeds, setGroupFeeds] = useState({});
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [commentingOn, setCommentingOn] = useState(null);
-  const [commentText, setCommentText] = useState('');
-  const [submissionComments, setSubmissionComments] = useState({});
-  const [homeActiveTab, setHomeActiveTab] = useState('global');
+  const [showGlobalSubmission, setShowGlobalSubmission] = useState(false);
+  const [globalSubmissionText, setGlobalSubmissionText] = useState('');
 
-  const loadGlobalChallenge = async () => {
+  const loadDailyGlobalActivity = async () => {
     try {
-      const response = await axios.get(`${API}/global-challenges/current`);
-      setCurrentGlobalChallenge(response.data);
+      const response = await axios.get(`${API}/daily-global-activity/current`);
+      setDailyGlobalActivity(response.data);
     } catch (error) {
-      console.error('Failed to load global challenge:', error);
+      console.error('Failed to load daily global activity:', error);
     }
   };
 
   const loadGlobalFeed = async () => {
     try {
-      setRefreshing(true);
-      const response = await axios.get(`${API}/global-feed`);
-      setGlobalFeedData(response.data);
-      
-      if (response.data.status === 'unlocked' && response.data.submissions) {
-        setGlobalSubmissions(response.data.submissions);
-        
-        const votesResponse = await axios.get(`${API}/users/${user.id}/votes`);
-        setUserVotes(new Set(votesResponse.data.global_submission_ids || []));
-      }
+      const response = await axios.get(`${API}/daily-global-activity/feed?user_id=${user.id}&friends_only=true`);
+      setGlobalFeed(response.data);
     } catch (error) {
       console.error('Failed to load global feed:', error);
-    } finally {
-      setRefreshing(false);
+    }
+  };
+
+  const loadUserGroups = async () => {
+    try {
+      const response = await axios.get(`${API}/users/${user.id}/groups`);
+      setUserGroups(response.data || []);
+      
+      // Load group feeds for each group
+      for (const group of response.data || []) {
+        loadGroupFeed(group.id);
+      }
+    } catch (error) {
+      console.error('Failed to load user groups:', error);
+    }
+  };
+
+  const loadGroupFeed = async (groupId) => {
+    try {
+      const response = await axios.get(`${API}/groups/${groupId}/daily-activity-feed?user_id=${user.id}`);
+      setGroupFeeds(prev => ({...prev, [groupId]: response.data}));
+    } catch (error) {
+      console.error(`Failed to load group feed for ${groupId}:`, error);
+    }
+  };
+
+  const submitGlobalActivity = async () => {
+    if (!globalSubmissionText.trim()) {
+      alert('Please enter a description of your activity completion');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('user_id', user.id);
+      formData.append('description', globalSubmissionText.trim());
+
+      const response = await axios.post(`${API}/daily-global-activity/complete`, formData);
+      
+      if (response.data.success) {
+        alert('Global activity completed! 🎉');
+        setGlobalSubmissionText('');
+        setShowGlobalSubmission(false);
+        // Reload feeds
+        await Promise.all([loadGlobalFeed(), loadDailyGlobalActivity()]);
+      }
+    } catch (error) {
+      console.error('Failed to submit global activity:', error);
+      alert(error.response?.data?.detail || 'Failed to submit activity');
     }
   };
 
   useEffect(() => {
     if (user?.id) {
       Promise.all([
-        loadGlobalChallenge(),
-        loadGlobalFeed()
+        loadDailyGlobalActivity(),
+        loadGlobalFeed(),
+        loadUserGroups()
       ]).finally(() => setLoading(false));
     }
   }, [user?.id]);
 
-  const handleVote = async (submissionId, voteType) => {
-    try {
-      setUserVotes(prev => {
-        const newVotes = new Set(prev);
-        if (newVotes.has(submissionId)) {
-          newVotes.delete(submissionId);
-        } else {
-          newVotes.add(submissionId);
-        }
-        return newVotes;
-      });
-
-      setGlobalSubmissions(prev => prev.map(submission => {
-        if (submission.id === submissionId) {
-          const isVoted = userVotes.has(submissionId);
-          return {
-            ...submission,
-            vote_count: isVoted ? submission.vote_count - 1 : submission.vote_count + 1
-          };
-        }
-        return submission;
-      }));
-
-      await axios.post(`${API}/global-submissions/${submissionId}/vote`, {
-        vote_type: voteType,
-        user_id: user.id
-      });
-      
-    } catch (error) {
-      console.error('Failed to vote:', error);
-      setUserVotes(prev => {
-        const newVotes = new Set(prev);
-        if (newVotes.has(submissionId)) {
-          newVotes.delete(submissionId);
-        } else {
-          newVotes.add(submissionId);
-        }
-        return newVotes;
-      });
-      
-      setGlobalSubmissions(prev => prev.map(submission => {
-        if (submission.id === submissionId) {
-          const wasVoted = !userVotes.has(submissionId);
-          return {
-            ...submission,
-            vote_count: wasVoted ? submission.vote_count - 1 : submission.vote_count + 1
-          };
-        }
-        return submission;
-      }));
-    }
-  };
-
-  const renderGlobalChallenge = () => {
-    if (!currentGlobalChallenge?.challenge) {
-      return renderNoChallenges();
-    }
-
-    const isLocked = globalFeedData?.status === 'locked';
-    const hasUserSubmitted = globalFeedData?.user_has_submitted || false;
-
+  const renderFriendsTab = () => {
     return (
-      <div className="space-y-4">
-        <div className="bg-gradient-to-r from-purple-600 to-blue-500 text-white p-6 rounded-xl shadow-lg">
-          <h2 className="text-xl font-bold mb-2">Today's Global Challenge</h2>
-          <p className="text-lg">{currentGlobalChallenge.challenge.prompt}</p>
-          <div className="flex items-center mt-3 text-sm opacity-90">
-            <span>🕒 {Math.floor(currentGlobalChallenge.time_remaining / 3600)}h {Math.floor((currentGlobalChallenge.time_remaining % 3600) / 60)}m left</span>
-          </div>
-        </div>
+      <div className="space-y-6">
+        {/* Today's Global Activity */}
+        {dailyGlobalActivity && (
+          <div className="bg-gradient-to-r from-purple-600 to-blue-500 text-white p-6 rounded-xl shadow-lg">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1">
+                <h2 className="text-xl font-bold mb-2">🌍 Today's Global Challenge</h2>
+                <h3 className="text-lg font-semibold mb-2">{dailyGlobalActivity.activity_title}</h3>
+                <p className="text-purple-100 mb-4">{dailyGlobalActivity.activity_description}</p>
+                <p className="text-sm opacity-90">
+                  {dailyGlobalActivity.participant_count} people participated today
+                </p>
+              </div>
+            </div>
 
-        {isLocked && !hasUserSubmitted && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-8 text-center shadow-lg border border-gray-200 dark:border-gray-700">
-            <div className="text-6xl mb-4">🔒</div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              Act First, See Later
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Submit your activity to unlock today's global feed and see what others shared!
-            </p>
+            {globalFeed?.status === 'locked' && (
+              <button
+                onClick={() => setShowGlobalSubmission(true)}
+                className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+              >
+                Complete Challenge to See Friends
+              </button>
+            )}
           </div>
         )}
 
-        {globalFeedData?.status === 'unlocked' && (
+        {/* Global Activity Submission Modal */}
+        {showGlobalSubmission && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Complete Global Activity</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                <strong>{dailyGlobalActivity?.activity_title}</strong>
+              </p>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    How did you complete this activity?
+                  </label>
+                  <textarea
+                    value={globalSubmissionText}
+                    onChange={(e) => setGlobalSubmissionText(e.target.value)}
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="Describe your completion..."
+                    rows="4"
+                    maxLength={300}
+                  />
+                </div>
+                
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowGlobalSubmission(false);
+                      setGlobalSubmissionText('');
+                    }}
+                    className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitGlobalActivity}
+                    className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700"
+                  >
+                    Submit
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Friends Feed */}
+        {globalFeed?.status === 'unlocked' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Global Feed ({globalSubmissions.length} submissions)
+                Friends Activity Feed
               </h3>
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                {globalFeed.friends_count} friends participated
+              </span>
             </div>
 
-            <div className="space-y-4">
-              {globalSubmissions.map((submission) => (
-                <div key={submission.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-                  <div className="p-4">
+            {globalFeed.completions && globalFeed.completions.length > 0 ? (
+              <div className="space-y-4">
+                {globalFeed.completions.map((completion) => (
+                  <div key={completion.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4">
                     <div className="flex items-center mb-3">
                       <div 
                         className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold mr-3"
-                        style={{ backgroundColor: submission.user?.avatar_color || '#6366F1' }}
+                        style={{ backgroundColor: '#6366F1' }}
                       >
-                        {submission.user?.username?.charAt(0).toUpperCase()}
+                        {completion.username?.charAt(0).toUpperCase()}
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900 dark:text-white">
-                          {submission.user?.username}
+                          {completion.username}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(submission.created_at).toLocaleDateString()}
+                          {new Date(completion.completed_at).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
                     
-                    {submission.image_url && (
+                    {completion.photo_url && (
                       <img 
-                        src={submission.image_url} 
-                        alt="Activity"
-                        className="w-full h-64 object-cover rounded-lg mb-3"
+                        src={completion.photo_url} 
+                        alt="Activity completion"
+                        className="w-full h-48 object-cover rounded-lg mb-3"
                       />
                     )}
                     
-                    <p className="text-gray-700 dark:text-gray-300 mb-4">{submission.description}</p>
-                    
-                    <div className="flex items-center space-x-4">
-                      <button
-                        onClick={() => handleVote(submission.id, 'up')}
-                        className={`flex items-center space-x-1 ${
-                          userVotes.has(submission.id)
-                            ? 'text-red-500'
-                            : 'text-gray-500 hover:text-red-500'
-                        }`}
-                      >
-                        <span>{userVotes.has(submission.id) ? '❤️' : '🤍'}</span>
-                        <span className="text-sm">{submission.vote_count}</span>
-                      </button>
-                    </div>
+                    <p className="text-gray-700 dark:text-gray-300">{completion.description}</p>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-4xl mb-4">👥</div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Friends Yet</h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Follow friends to see their activity completions!
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {globalFeed?.status === 'locked' && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-8 text-center shadow-lg border border-gray-200 dark:border-gray-700">
+            <div className="text-6xl mb-4">🔒</div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+              Complete First, Then View
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Submit your activity to view friends' posts
+            </p>
+            <button
+              onClick={() => setShowGlobalSubmission(true)}
+              className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              Complete Global Activity
+            </button>
           </div>
         )}
       </div>
     );
   };
 
-  const renderNoChallenges = () => {
+  const renderGroupsTab = () => {
     return (
-      <div className="text-center py-12">
-        <div className="text-6xl mb-4">💪</div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Ready for Action!</h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">
-          Join thousands worldwide in today's challenge
-        </p>
+      <div className="space-y-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          Group Activity Feeds
+        </h3>
+
+        {userGroups.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">👥</div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Groups Yet</h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              Join or create a group to see daily activities here
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {userGroups.map((group) => {
+              const groupFeed = groupFeeds[group.id];
+              
+              return (
+                <div key={group.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {group.name}
+                    </h4>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {group.member_count} members
+                    </span>
+                  </div>
+
+                  {groupFeed?.status === 'no_activity' && (
+                    <div className="text-center py-6">
+                      <div className="text-4xl mb-2">⏰</div>
+                      <p className="text-gray-600 dark:text-gray-400">
+                        No activity revealed yet for today
+                      </p>
+                    </div>
+                  )}
+
+                  {groupFeed?.status === 'locked' && (
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                      <div className="text-center">
+                        <div className="text-4xl mb-2">🔒</div>
+                        <h5 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-1">
+                          {groupFeed.activity?.activity_title}
+                        </h5>
+                        <p className="text-yellow-600 dark:text-yellow-300 text-sm">
+                          Submit your group activity to view members' posts
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {groupFeed?.status === 'unlocked' && (
+                    <div className="space-y-4">
+                      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                        <h5 className="font-semibold text-green-800 dark:text-green-200 mb-1">
+                          Today's Activity: {groupFeed.activity?.activity_title}
+                        </h5>
+                        <p className="text-green-600 dark:text-green-300 text-sm">
+                          {groupFeed.members_completed} members completed
+                        </p>
+                      </div>
+
+                      {groupFeed.completions && groupFeed.completions.length > 0 && (
+                        <div className="space-y-3">
+                          {groupFeed.completions.map((completion) => (
+                            <div key={completion.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                              <div className="flex items-center mb-2">
+                                <div 
+                                  className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold mr-3 text-sm"
+                                  style={{ backgroundColor: completion.user_info?.avatar_color || '#6366F1' }}
+                                >
+                                  {completion.user_info?.username?.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900 dark:text-white text-sm">
+                                    {completion.user_info?.full_name}
+                                  </p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {completion.points_earned} points • {new Date(completion.completed_at).toLocaleTimeString()}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {completion.completion_description && (
+                                <p className="text-gray-700 dark:text-gray-300 text-sm">
+                                  {completion.completion_description}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   };
@@ -457,16 +595,6 @@ const FeedScreen = ({ user }) => {
     <div className="h-full overflow-y-auto">
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
         <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-          <button
-            onClick={() => setHomeActiveTab('global')}
-            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-              homeActiveTab === 'global'
-                ? 'bg-white dark:bg-gray-600 text-purple-600 dark:text-purple-400'
-                : 'text-gray-600 dark:text-gray-300'
-            }`}
-          >
-            Global
-          </button>
           <button
             onClick={() => setHomeActiveTab('friends')}
             className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
@@ -491,25 +619,8 @@ const FeedScreen = ({ user }) => {
       </div>
 
       <div className="p-4">
-        {homeActiveTab === 'global' && renderGlobalChallenge()}
-        {homeActiveTab === 'friends' && (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">👥</div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Friends Feed</h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              See what your friends are up to in challenges
-            </p>
-          </div>
-        )}
-        {homeActiveTab === 'groups' && (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">👥</div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Group Activities</h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              View your group challenges and activities
-            </p>
-          </div>
-        )}
+        {homeActiveTab === 'friends' && renderFriendsTab()}
+        {homeActiveTab === 'groups' && renderGroupsTab()}
       </div>
     </div>
   );
@@ -1309,8 +1420,8 @@ const WeeklyActivityGroupScreen = ({ group, user, onBack, darkMode }) => {
             {currentDayActivity && (
               <div className="bg-gradient-to-r from-purple-600 to-blue-500 text-white rounded-xl p-6 shadow-lg">
                 <h3 className="text-lg font-bold mb-2">Today's Challenge 🏆</h3>
-                <h4 className="text-xl font-semibold mb-2">{currentDayActivity.title}</h4>
-                <p className="text-purple-100 mb-4">{currentDayActivity.description}</p>
+                <h4 className="text-xl font-semibold mb-2">{currentDayActivity.activity_title}</h4>
+                <p className="text-purple-100 mb-4">{currentDayActivity.activity_description}</p>
                 <button className="bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100">
                   Complete Challenge
                 </button>
