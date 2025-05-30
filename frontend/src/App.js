@@ -317,6 +317,32 @@ const FeedScreen = ({ user }) => {
     }
   };
 
+  const submitGroupActivity = async (groupId) => {
+    if (!groupSubmissionText.trim()) {
+      alert('Please enter a description of your activity completion');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('user_id', user.id);
+      formData.append('description', groupSubmissionText.trim());
+
+      const response = await axios.post(`${API}/groups/${groupId}/complete-daily-activity`, formData);
+      
+      if (response.data.success) {
+        alert(`Group activity completed! You earned ${response.data.points_earned} points! 🎉`);
+        setGroupSubmissionText('');
+        setShowGroupSubmission(null);
+        // Reload group feed
+        await loadGroupFeed(groupId);
+      }
+    } catch (error) {
+      console.error('Failed to submit group activity:', error);
+      alert(error.response?.data?.detail || 'Failed to submit group activity');
+    }
+  };
+
   useEffect(() => {
     if (user?.id) {
       Promise.all([
