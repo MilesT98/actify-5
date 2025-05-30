@@ -29,6 +29,11 @@ global_challenges_collection = db.global_challenges
 global_submissions_collection = db.global_submissions
 global_votes_collection = db.global_votes
 
+# New collections for Global Activity System
+daily_global_activities_collection = db.daily_global_activities
+global_activity_completions_collection = db.global_activity_completions
+activity_dataset_collection = db.activity_dataset
+
 # Create the main app
 app = FastAPI(title="ACTIFY API", version="1.0.0")
 
