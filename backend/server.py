@@ -1484,6 +1484,11 @@ async def get_daily_global_activity_feed(
     if not daily_activity:
         return {"status": "no_activity", "message": "No global activity for today"}
     
+    # Clean up daily_activity first
+    daily_activity.pop('_id', None)
+    if 'selected_at' in daily_activity and hasattr(daily_activity['selected_at'], 'isoformat'):
+        daily_activity['selected_at'] = daily_activity['selected_at'].isoformat()
+    
     # Check if user has completed today's activity
     user_completion = await global_activity_completions_collection.find_one({
         "activity_id": daily_activity["id"],
@@ -1527,10 +1532,6 @@ async def get_daily_global_activity_feed(
         completion.pop('_id', None)
         if 'completed_at' in completion and hasattr(completion['completed_at'], 'isoformat'):
             completion['completed_at'] = completion['completed_at'].isoformat()
-    
-    daily_activity.pop('_id', None)
-    if 'selected_at' in daily_activity and hasattr(daily_activity['selected_at'], 'isoformat'):
-        daily_activity['selected_at'] = daily_activity['selected_at'].isoformat()
     
     return {
         "status": "unlocked",
