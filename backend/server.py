@@ -1541,6 +1541,101 @@ async def get_daily_global_activity_feed(
         "user_has_completed": True
     }
 
+@api_router.post("/groups/{group_id}/complete-daily-activity")
+async def complete_group_daily_activity(
+    group_id: str,
+    user_id: str = Form(...),
+    description: str = Form(...),
+    photo: Optional[UploadFile] = File(None)
+):
+    """Submit completion of today's group activity"""
+    # Get group info
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if user_id not in group["members"]:
+        raise HTTPException(status_code=403, detail="User not in group")
+    
+    # Get today's revealed activity for this group
+    current_day_activity = group.get("current_day_activity")
+    if not current_day_activity:
+        raise HTTPException(status_code=400, detail="No activity revealed for today")
+    
+    # Check if user already completed today's group activity
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+    
+    existing_completion = await db.daily_activity_completions.find_one({
+        "group_id": group_id,
+        "completed_by": user_id,
+        "completed_at": {"$gte": today_start, "$lt": today_end}
+    })
+    
+    if existing_completion:
+        raise HTTPException(status_code=400, detail="Already completed today's group activity")
+    
+    # Get user info
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Process photo if provided
+    photo_url = None
+    if photo:
+        content = await photo.read()
+        photo_url = f"data:image/jpeg;base64,{base64.b64encode(content).decode('utf-8')}"
+    
+    # Calculate points (3 points for 1st, 2 for 2nd, 1 for 3rd+)
+    completion_count = await db.daily_activity_completions.count_documents({
+        "group_id": group_id,
+        "activity_id": current_day_activity.get("activity_id"),
+        "completed_at": {"$gte": today_start, "$lt": today_end}
+    })
+    
+    if completion_count == 0:
+        points_earned = 3
+    elif completion_count == 1:
+        points_earned = 2
+    else:
+        points_earned = 1
+    
+    # Create completion record
+    completion_doc = {
+        "id": str(uuid.uuid4()),
+        "group_id": group_id,
+        "activity_id": current_day_activity.get("activity_id"),
+        "completed_by": user_id,
+        "completion_description": description,
+        "photo_url": photo_url,
+        "points_earned": points_earned,
+        "completed_at": datetime.utcnow(),
+        "day_number": current_day_activity.get("day_number", 1)
+    }
+    
+    await db.daily_activity_completions.insert_one(completion_doc)
+    
+    # Update user's points in the group
+    current_points = group.get("current_week_points", {}).get(user_id, 0)
+    new_points = current_points + points_earned
+    
+    await db.groups.update_one(
+        {"id": group_id},
+        {"$set": {f"current_week_points.{user_id}": new_points}}
+    )
+    
+    # Remove MongoDB ObjectId for response
+    completion_doc.pop('_id', None)
+    if 'completed_at' in completion_doc and hasattr(completion_doc['completed_at'], 'isoformat'):
+        completion_doc['completed_at'] = completion_doc['completed_at'].isoformat()
+    
+    return {
+        "success": True,
+        "completion": completion_doc,
+        "points_earned": points_earned,
+        "message": f"Group activity completed! You earned {points_earned} points. You can now view members' posts."
+    }
+
 @api_router.get("/groups/{group_id}/daily-activity-feed")
 async def get_group_daily_activity_feed(
     group_id: str,
