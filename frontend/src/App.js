@@ -245,10 +245,20 @@ const FeedScreen = ({ user }) => {
   const [userGroups, setUserGroups] = useState([]);
   const [groupFeeds, setGroupFeeds] = useState({});
   const [loading, setLoading] = useState(true);
+  
+  // Global activity submission state
   const [showGlobalSubmission, setShowGlobalSubmission] = useState(false);
   const [globalSubmissionText, setGlobalSubmissionText] = useState('');
+  const [globalPhotoPreview, setGlobalPhotoPreview] = useState(null);
+  const [globalPhotoFile, setGlobalPhotoFile] = useState(null);
+  const [showGlobalCamera, setShowGlobalCamera] = useState(false);
+  
+  // Group activity submission state
   const [showGroupSubmission, setShowGroupSubmission] = useState(null);
   const [groupSubmissionText, setGroupSubmissionText] = useState('');
+  const [groupPhotoPreview, setGroupPhotoPreview] = useState(null);
+  const [groupPhotoFile, setGroupPhotoFile] = useState(null);
+  const [showGroupCamera, setShowGroupCamera] = useState(false);
 
   const loadDailyGlobalActivity = async () => {
     try {
@@ -291,9 +301,46 @@ const FeedScreen = ({ user }) => {
     }
   };
 
+  const handleGlobalPhotoCapture = (photoBlob) => {
+    setGlobalPhotoFile(photoBlob);
+    const photoUrl = URL.createObjectURL(photoBlob);
+    setGlobalPhotoPreview(photoUrl);
+    setShowGlobalCamera(false);
+  };
+
+  const handleGlobalFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setGlobalPhotoFile(file);
+      const photoUrl = URL.createObjectURL(file);
+      setGlobalPhotoPreview(photoUrl);
+    }
+  };
+
+  const handleGroupPhotoCapture = (photoBlob) => {
+    setGroupPhotoFile(photoBlob);
+    const photoUrl = URL.createObjectURL(photoBlob);
+    setGroupPhotoPreview(photoUrl);
+    setShowGroupCamera(false);
+  };
+
+  const handleGroupFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setGroupPhotoFile(file);
+      const photoUrl = URL.createObjectURL(file);
+      setGroupPhotoPreview(photoUrl);
+    }
+  };
+
   const submitGlobalActivity = async () => {
     if (!globalSubmissionText.trim()) {
       alert('Please enter a description of your activity completion');
+      return;
+    }
+
+    if (!globalPhotoFile) {
+      alert('Photo proof is required to complete the activity');
       return;
     }
 
@@ -301,12 +348,15 @@ const FeedScreen = ({ user }) => {
       const formData = new FormData();
       formData.append('user_id', user.id);
       formData.append('description', globalSubmissionText.trim());
+      formData.append('photo', globalPhotoFile);
 
       const response = await axios.post(`${API}/daily-global-activity/complete`, formData);
       
       if (response.data.success) {
         alert('Global activity completed! 🎉');
         setGlobalSubmissionText('');
+        setGlobalPhotoPreview(null);
+        setGlobalPhotoFile(null);
         setShowGlobalSubmission(false);
         // Reload feeds
         await Promise.all([loadGlobalFeed(), loadDailyGlobalActivity()]);
@@ -323,16 +373,24 @@ const FeedScreen = ({ user }) => {
       return;
     }
 
+    if (!groupPhotoFile) {
+      alert('Photo proof is required to complete the group activity');
+      return;
+    }
+
     try {
       const formData = new FormData();
       formData.append('user_id', user.id);
       formData.append('description', groupSubmissionText.trim());
+      formData.append('photo', groupPhotoFile);
 
       const response = await axios.post(`${API}/groups/${groupId}/complete-daily-activity`, formData);
       
       if (response.data.success) {
         alert(`Group activity completed! You earned ${response.data.points_earned} points! 🎉`);
         setGroupSubmissionText('');
+        setGroupPhotoPreview(null);
+        setGroupPhotoFile(null);
         setShowGroupSubmission(null);
         // Reload group feed
         await loadGroupFeed(groupId);
@@ -356,7 +414,7 @@ const FeedScreen = ({ user }) => {
   const renderFriendsTab = () => {
     return (
       <div className="space-y-6">
-        {/* Today's Global Activity */}
+        {/* Today's Global Activity - FIXED: Consolidated UI */}
         {dailyGlobalActivity && (
           <div className="bg-gradient-to-r from-purple-600 to-blue-500 text-white p-6 rounded-xl shadow-lg">
             <div className="flex items-start justify-between mb-4">
@@ -370,21 +428,43 @@ const FeedScreen = ({ user }) => {
               </div>
             </div>
 
+            {/* Dynamic content based on completion status */}
             {globalFeed?.status === 'locked' && (
-              <button
-                onClick={() => setShowGlobalSubmission(true)}
-                className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-              >
-                Complete Challenge to See Friends
-              </button>
+              <div className="mt-4">
+                <div className="flex items-center space-x-2 mb-3">
+                  <div className="text-2xl">🔒</div>
+                  <div>
+                    <p className="font-semibold">Complete First, Then View</p>
+                    <p className="text-purple-100 text-sm">Submit your activity to view friends' posts</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowGlobalSubmission(true)}
+                  className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+                >
+                  📸 Complete Challenge with Photo
+                </button>
+              </div>
+            )}
+
+            {globalFeed?.status === 'unlocked' && (
+              <div className="mt-4">
+                <div className="flex items-center space-x-2">
+                  <div className="text-2xl">✅</div>
+                  <div>
+                    <p className="font-semibold">Challenge Completed!</p>
+                    <p className="text-purple-100 text-sm">View your friends' posts below</p>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         )}
 
-        {/* Global Activity Submission Modal */}
+        {/* Global Activity Submission Modal with Photo Upload */}
         {showGlobalSubmission && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Complete Global Activity</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 <strong>{dailyGlobalActivity?.activity_title}</strong>
@@ -404,12 +484,63 @@ const FeedScreen = ({ user }) => {
                     maxLength={300}
                   />
                 </div>
+
+                {/* Photo Upload Section */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Photo Proof Required *
+                  </label>
+                  
+                  {globalPhotoPreview ? (
+                    <div className="space-y-3">
+                      <img 
+                        src={globalPhotoPreview} 
+                        alt="Activity proof" 
+                        className="w-full h-48 object-cover rounded-lg"
+                      />
+                      <button
+                        onClick={() => {
+                          setGlobalPhotoPreview(null);
+                          setGlobalPhotoFile(null);
+                        }}
+                        className="text-red-600 text-sm hover:text-red-700"
+                      >
+                        Remove Photo
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={() => setShowGlobalCamera(true)}
+                          className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          📷 Take Photo
+                        </button>
+                        <label className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer text-center">
+                          📁 Choose File
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleGlobalFileSelect}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Upload a photo showing completion of your activity
+                      </p>
+                    </div>
+                  )}
+                </div>
                 
                 <div className="flex space-x-3">
                   <button
                     onClick={() => {
                       setShowGlobalSubmission(false);
                       setGlobalSubmissionText('');
+                      setGlobalPhotoPreview(null);
+                      setGlobalPhotoFile(null);
                     }}
                     className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500"
                   >
@@ -417,9 +548,10 @@ const FeedScreen = ({ user }) => {
                   </button>
                   <button
                     onClick={submitGlobalActivity}
-                    className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700"
+                    disabled={!globalPhotoFile}
+                    className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Submit
+                    Submit with Photo
                   </button>
                 </div>
               </div>
@@ -427,10 +559,10 @@ const FeedScreen = ({ user }) => {
           </div>
         )}
 
-        {/* Group Activity Submission Modal */}
+        {/* Group Activity Submission Modal with Photo Upload */}
         {showGroupSubmission && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Complete Group Activity</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 <strong>{groupFeeds[showGroupSubmission]?.activity?.activity_title}</strong>
@@ -453,6 +585,55 @@ const FeedScreen = ({ user }) => {
                     maxLength={300}
                   />
                 </div>
+
+                {/* Photo Upload Section */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Photo Proof Required *
+                  </label>
+                  
+                  {groupPhotoPreview ? (
+                    <div className="space-y-3">
+                      <img 
+                        src={groupPhotoPreview} 
+                        alt="Activity proof" 
+                        className="w-full h-48 object-cover rounded-lg"
+                      />
+                      <button
+                        onClick={() => {
+                          setGroupPhotoPreview(null);
+                          setGroupPhotoFile(null);
+                        }}
+                        className="text-red-600 text-sm hover:text-red-700"
+                      >
+                        Remove Photo
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={() => setShowGroupCamera(true)}
+                          className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          📷 Take Photo
+                        </button>
+                        <label className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer text-center">
+                          📁 Choose File
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleGroupFileSelect}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Upload a photo showing completion of your activity
+                      </p>
+                    </div>
+                  )}
+                </div>
                 
                 <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg">
                   <p className="text-sm text-purple-700 dark:text-purple-300">
@@ -465,6 +646,8 @@ const FeedScreen = ({ user }) => {
                     onClick={() => {
                       setShowGroupSubmission(null);
                       setGroupSubmissionText('');
+                      setGroupPhotoPreview(null);
+                      setGroupPhotoFile(null);
                     }}
                     className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500"
                   >
@@ -472,9 +655,10 @@ const FeedScreen = ({ user }) => {
                   </button>
                   <button
                     onClick={() => submitGroupActivity(showGroupSubmission)}
-                    className="flex-1 bg-yellow-600 text-white py-2 px-4 rounded-lg hover:bg-yellow-700"
+                    disabled={!groupPhotoFile}
+                    className="flex-1 bg-yellow-600 text-white py-2 px-4 rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Submit
+                    Submit with Photo
                   </button>
                 </div>
               </div>
@@ -482,7 +666,7 @@ const FeedScreen = ({ user }) => {
           </div>
         )}
 
-        {/* Friends Feed */}
+        {/* Friends Feed - Only show when unlocked */}
         {globalFeed?.status === 'unlocked' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -536,24 +720,6 @@ const FeedScreen = ({ user }) => {
                 </p>
               </div>
             )}
-          </div>
-        )}
-
-        {globalFeed?.status === 'locked' && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-8 text-center shadow-lg border border-gray-200 dark:border-gray-700">
-            <div className="text-6xl mb-4">🔒</div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              Complete First, Then View
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Submit your activity to view friends' posts
-            </p>
-            <button
-              onClick={() => setShowGlobalSubmission(true)}
-              className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              Complete Global Activity
-            </button>
           </div>
         )}
       </div>
@@ -615,7 +781,7 @@ const FeedScreen = ({ user }) => {
                         onClick={() => setShowGroupSubmission(group.id)}
                         className="w-full bg-yellow-600 text-white py-2 px-4 rounded-lg hover:bg-yellow-700 transition-colors"
                       >
-                        Complete Group Activity
+                        📸 Complete Group Activity with Photo
                       </button>
                     </div>
                   )}
@@ -651,6 +817,14 @@ const FeedScreen = ({ user }) => {
                                   </p>
                                 </div>
                               </div>
+                              
+                              {completion.photo_url && (
+                                <img 
+                                  src={completion.photo_url} 
+                                  alt="Activity completion"
+                                  className="w-full h-32 object-cover rounded-lg mb-2"
+                                />
+                              )}
                               
                               {completion.completion_description && (
                                 <p className="text-gray-700 dark:text-gray-300 text-sm">
@@ -711,6 +885,21 @@ const FeedScreen = ({ user }) => {
         {homeActiveTab === 'friends' && renderFriendsTab()}
         {homeActiveTab === 'groups' && renderGroupsTab()}
       </div>
+
+      {/* Camera Modals */}
+      {showGlobalCamera && (
+        <CameraCapture 
+          onCapture={handleGlobalPhotoCapture}
+          onClose={() => setShowGlobalCamera(false)}
+        />
+      )}
+
+      {showGroupCamera && (
+        <CameraCapture 
+          onCapture={handleGroupPhotoCapture}
+          onClose={() => setShowGroupCamera(false)}
+        />
+      )}
     </div>
   );
 };
@@ -730,6 +919,7 @@ const GroupsScreen = ({ user, darkMode }) => {
   const [showJoinForm, setShowJoinForm] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [joinGroupLoading, setJoinGroupLoading] = useState(false);
+  const [joinGroupError, setJoinGroupError] = useState('');
 
   const loadGroups = async () => {
     try {
@@ -793,27 +983,63 @@ const GroupsScreen = ({ user, darkMode }) => {
 
   const joinGroupByCode = async () => {
     if (!inviteCode.trim()) {
-      alert('Please enter an invite code');
+      setJoinGroupError('Please enter an invite code');
+      return;
+    }
+
+    if (inviteCode.trim().length !== 6) {
+      setJoinGroupError('Invite code must be 6 characters long');
       return;
     }
 
     setJoinGroupLoading(true);
+    setJoinGroupError('');
+    
     try {
+      // Verify user is authenticated
+      if (!user || !user.id) {
+        setJoinGroupError('User authentication required. Please log in again.');
+        return;
+      }
+
       const formData = new FormData();
       formData.append('invite_code', inviteCode.trim().toUpperCase());
       formData.append('user_id', user.id);
 
-      const response = await axios.post(`${API}/groups/join-by-code`, formData);
+      console.log('Joining group with code:', inviteCode.trim().toUpperCase());
+      console.log('User ID:', user.id);
+
+      const response = await axios.post(`${API}/groups/join-by-code`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      console.log('Join group response:', response.data);
       
       if (response.data.success) {
         alert('Successfully joined group! 🎉');
         setInviteCode('');
         setShowJoinForm(false);
+        setJoinGroupError('');
         await loadGroups();
+      } else {
+        setJoinGroupError(response.data.message || 'Failed to join group');
       }
     } catch (error) {
       console.error('Failed to join group:', error);
-      alert(error.response?.data?.detail || 'Failed to join group');
+      console.error('Error details:', error.response?.data);
+      
+      let errorMessage = 'Failed to join group';
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setJoinGroupError(errorMessage);
     } finally {
       setJoinGroupLoading(false);
     }
@@ -864,11 +1090,17 @@ const GroupsScreen = ({ user, darkMode }) => {
         </div>
       </div>
 
-      {/* Join Group Modal */}
+      {/* Join Group Modal - FIXED: Enhanced error handling */}
       {showJoinForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Join Group</h2>
+            
+            {joinGroupError && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                {joinGroupError}
+              </div>
+            )}
             
             <div className="space-y-4">
               <div>
@@ -878,7 +1110,10 @@ const GroupsScreen = ({ user, darkMode }) => {
                 <input
                   type="text"
                   value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                  onChange={(e) => {
+                    setInviteCode(e.target.value.toUpperCase());
+                    setJoinGroupError(''); // Clear error when typing
+                  }}
                   className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white uppercase"
                   placeholder="Enter 6-digit code"
                   maxLength={6}
@@ -890,15 +1125,17 @@ const GroupsScreen = ({ user, darkMode }) => {
                   onClick={() => {
                     setShowJoinForm(false);
                     setInviteCode('');
+                    setJoinGroupError('');
                   }}
                   className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500"
+                  disabled={joinGroupLoading}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={joinGroupByCode}
-                  disabled={joinGroupLoading}
-                  className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  disabled={joinGroupLoading || !inviteCode.trim()}
+                  className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {joinGroupLoading ? 'Joining...' : 'Join Group'}
                 </button>
