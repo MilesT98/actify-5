@@ -32,22 +32,23 @@ reveal_global_activity() {
 get_next_reveal_day() {
     local group_id=$1
     
+    echo "📊 GROUP STATUS:"
+    
     # Get weekly activities and count revealed ones
     response=$(curl -s -X GET "$API_BASE/groups/$group_id/weekly-activities")
     total=$(echo "$response" | jq 'length')
     revealed=$(echo "$response" | jq '[.[] | select(.is_revealed == true)] | length')
     next_day=$((revealed + 1))
     
-    echo "📊 GROUP STATUS:"
     echo "   📝 Activities Submitted: $total/7"
     echo "   👁️  Activities Revealed: $revealed"
     echo "   ➡️  Next Day to Reveal: $next_day"
     echo ""
     
     if [ $next_day -le 7 ] && [ $total -ge $next_day ]; then
-        echo $next_day
+        return $next_day
     else
-        echo 0
+        return 0
     fi
 }
 
