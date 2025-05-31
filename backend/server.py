@@ -420,6 +420,41 @@ async def get_user_groups(user_id: str):
 
 # Weekly Activity Challenge System Endpoints
 
+@api_router.post("/groups/join-by-code")
+async def join_group_by_invite_code_global(
+    invite_code: str = Form(...),
+    user_id: str = Form(...)
+):
+    """Join a group using invite code (finds group by code)"""
+    # Find group by invite code
+    group = await db.groups.find_one({"invite_code": invite_code.upper()})
+    if not group:
+        raise HTTPException(status_code=404, detail="Invalid invite code")
+    
+    if len(group["members"]) >= group.get("max_members", 7):
+        raise HTTPException(status_code=400, detail="Group is full (max 7 members)")
+    
+    if user_id in group["members"]:
+        raise HTTPException(status_code=400, detail="User already in group")
+    
+    # Add user to group
+    await db.groups.update_one(
+        {"id": group["id"]},
+        {
+            "$push": {"members": user_id},
+            "$inc": {"member_count": 1},
+            "$set": {f"current_week_points.{user_id}": 0}
+        }
+    )
+    
+    # Add group to user's groups list
+    await db.users.update_one(
+        {"id": user_id},
+        {"$push": {"groups": group["id"]}}
+    )
+    
+    return {"success": True, "message": "Successfully joined group", "group": group}
+
 @api_router.post("/groups/{group_id}/join-by-code")
 async def join_group_by_invite_code(
     group_id: str,
