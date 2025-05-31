@@ -96,7 +96,8 @@ main() {
     reveal_global_activity
     
     # 2. Get group status and next day to reveal
-    next_day=$(get_next_reveal_day $TEST_GROUP_ID)
+    get_next_reveal_day $TEST_GROUP_ID
+    next_day=$?
     
     # 3. Reveal Group Activity
     reveal_group_activity $TEST_GROUP_ID $next_day
