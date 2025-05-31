@@ -1,0 +1,35 @@
+# ACTIFY Production Cron Jobs for Daily Reveals
+# Add these lines to crontab using: crontab -e
+
+# Global Activity Reveal (happens automatically when first accessed)
+# Check daily at 6 AM GMT to ensure activity is available
+0 6 * * * curl -s http://localhost:8001/api/daily-global-activity/current > /dev/null
+
+# Group Activity Reveals (admin-triggered, can be automated)
+# Reveal group activities at random times between 8 AM and 6 PM GMT
+# Day 1 - Monday 10 AM
+0 10 * * 1 /app/scripts/daily_reveal_simulation.sh
+
+# Day 2 - Tuesday 2 PM  
+0 14 * * 2 /app/scripts/daily_reveal_simulation.sh
+
+# Day 3 - Wednesday 11 AM
+0 11 * * 3 /app/scripts/daily_reveal_simulation.sh
+
+# Day 4 - Thursday 4 PM
+0 16 * * 4 /app/scripts/daily_reveal_simulation.sh
+
+# Day 5 - Friday 9 AM
+0 9 * * 5 /app/scripts/daily_reveal_simulation.sh
+
+# Day 6 - Saturday 1 PM
+0 13 * * 6 /app/scripts/daily_reveal_simulation.sh
+
+# Day 7 - Sunday 3 PM
+0 15 * * 0 /app/scripts/daily_reveal_simulation.sh
+
+# Alternative: Single daily reveal at random time (8 AM - 6 PM GMT)
+# 0 8-18 * * * /app/scripts/daily_reveal_simulation.sh
+
+# Weekly cleanup - Reset completed challenges
+# 0 0 * * 1 /app/scripts/weekly_reset.sh
